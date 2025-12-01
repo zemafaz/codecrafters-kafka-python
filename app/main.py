@@ -1,6 +1,13 @@
 import socket  # noqa: F401
 
 
+def parse_response() -> bytes:
+    message_size = "00000000"
+    correlation_id = "00000007"
+
+    return bytes.fromhex(message_size + correlation_id)
+
+
 def main():
     # You can use print statements as follows for debugging,
     # they'll be visible when running tests.
@@ -8,6 +15,8 @@ def main():
 
     server = socket.create_server(("localhost", 9092), reuse_port=True)
     server.accept()  # wait for client
+    response = parse_response()
+    server.sendall(response)
 
 
 if __name__ == "__main__":
