@@ -1,21 +1,8 @@
 import socket  # noqa: F401
+from .request import Request, RequestHeaderV2
 
-MESSAGE_SIZE_SIZE = 4
-REQ_API_KEY_SIZE = 2
-REQ_API_VERSION_SIZE = 2
-REQ_CORRELATION_ID_SIZE = 4
-
-
-def parse_response(correlation_id: bytes) -> bytes:
-    message_size = bytes(len(correlation_id))
-
-    return message_size + correlation_id
-
-
-def parse_correlation_id(request: bytes) -> bytes:
-    start = MESSAGE_SIZE_SIZE + REQ_API_KEY_SIZE + REQ_API_VERSION_SIZE
-    end = start + REQ_CORRELATION_ID_SIZE
-    return request[start:end]
+VALID_ERROR_CODE = 0
+INVALID_API_VERSION_ERROR_CODE = 35
 
 
 def main():
@@ -25,13 +12,34 @@ def main():
 
     server = socket.create_server(("localhost", 9092), reuse_port=True)
     connection, _ = server.accept()  # wait for client
-    request = connection.recv(1024)
+    request_byte = connection.recv(1024)
 
-    correlation_id = parse_correlation_id(request)
+    request = Request(request_byte, RequestHeaderV2)
 
-    response = parse_response(correlation_id)
+    correlation_id = request.get_correlation_id()
+
+    api_version = request.get_api_version()
+
+    error_code = validate_api_version(api_version)
+
+    response = parse_response(correlation_id, error_code)
+
     connection.sendall(response)
     connection.close()
+
+
+def validate_api_version(api_version: bytes) -> bytes:
+    return (
+        VALID_ERROR_CODE.to_bytes(2)
+        if b"0" <= api_version <= b"4"
+        else INVALID_API_VERSION_ERROR_CODE.to_bytes(2)
+    )
+
+
+def parse_response(correlation_id: bytes, error_code: bytes) -> bytes:
+    message_size = (len(correlation_id) + len(error_code)).to_bytes(4)
+
+    return message_size + correlation_id + error_code
 
 
 if __name__ == "__main__":
