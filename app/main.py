@@ -14,9 +14,10 @@ def main():
     print("Logs from your program will appear here!")
 
     server = socket.create_server(("localhost", 9092), reuse_port=True)
-    server.accept()  # wait for client
+    connection, _ = server.accept()  # wait for client
     response = parse_response()
-    server.sendall(response)
+    connection.sendall(response)
+    connection.close()
 
 
 if __name__ == "__main__":
