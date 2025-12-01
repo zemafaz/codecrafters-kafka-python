@@ -1,11 +1,21 @@
 import socket  # noqa: F401
 
+MESSAGE_SIZE_SIZE = 4
+REQ_API_KEY_SIZE = 2
+REQ_API_VERSION_SIZE = 2
+REQ_CORRELATION_ID_SIZE = 4
 
-def parse_response() -> bytes:
-    message_size = "00000000"
-    correlation_id = "00000007"
 
-    return bytes.fromhex(message_size + correlation_id)
+def parse_response(correlation_id: bytes) -> bytes:
+    message_size = bytes(len(correlation_id))
+
+    return message_size + correlation_id
+
+
+def parse_correlation_id(request: bytes) -> bytes:
+    start = MESSAGE_SIZE_SIZE + REQ_API_KEY_SIZE + REQ_API_VERSION_SIZE
+    end = start + REQ_CORRELATION_ID_SIZE
+    return request[start:end]
 
 
 def main():
@@ -15,7 +25,11 @@ def main():
 
     server = socket.create_server(("localhost", 9092), reuse_port=True)
     connection, _ = server.accept()  # wait for client
-    response = parse_response()
+    request = connection.recv(1024)
+
+    correlation_id = parse_correlation_id(request)
+
+    response = parse_response(correlation_id)
     connection.sendall(response)
     connection.close()
 
